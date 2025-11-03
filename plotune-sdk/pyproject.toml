@@ -1,0 +1,7 @@
+[project]
+name = "plotune_sdk" 
+version = "0.1.0" 
+description = "Plotune SDK for developing extensions" 
+authors = [{ name = "Plotune Team", email = "contact@plotune.net" }] 
+readme = "README.md" 
+requires-python = ">=3.10"
