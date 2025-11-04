@@ -182,8 +182,9 @@ This works even when your extension is built as a **.exe** or packaged into a **
 
 ## 🧩 License
 
-MIT License © 2025 — **Plotune Team**
+Apache License 2.0 © 2025 — **Plotune Team**  
 For more details, visit [https://plotune.net](https://plotune.net)
+
 
 ---
 
