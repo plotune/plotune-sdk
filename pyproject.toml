@@ -1,7 +1,31 @@
 [project]
-name = "plotune_sdk" 
-version = "0.1.0" 
-description = "Plotune SDK for developing extensions" 
-authors = [{ name = "Plotune Team", email = "contact@plotune.net" }] 
-readme = "README.md" 
+name = "plotune_sdk"
+version = "0.1.0"
+description = "Plotune SDK for developing extensions"
+authors = [{ name = "Plotune Team", email = "contact@plotune.net" }]
+readme = "README.md"
 requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi==0.121.0",
+    "uvicorn[standard]==0.38.0",
+    "httpx==0.28.1",
+    "pydantic>=2.9.0",
+    "pillow>=10.0.0",
+    "pystray>=0.19.5",
+    "packaging>=24.2",
+    "platformdirs>=4.2.2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "black",
+    "mypy",
+    "pip-chill",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
