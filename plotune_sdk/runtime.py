@@ -14,7 +14,7 @@ from plotune_sdk.server import PlotuneServer
 from plotune_sdk.core import CoreClient
 from plotune_sdk.utils import get_logger
 
-logger = get_logger("plotune_runtime", console=False)
+logger = get_logger("extension")
 
 class PlotuneRuntime:
     def __init__(
@@ -155,20 +155,25 @@ class PlotuneRuntime:
             MenuItem("Force Stop", lambda _: self.kill()),
         ]
 
+        import inspect
         def make_callback(f):
             def callback(icon, item):
                 try:
-                    f()
+                    if inspect.iscoroutinefunction(f):
+                        coro = f()  # coroutine objesi oluştur
+                        asyncio.run_coroutine_threadsafe(coro, self.loop)
+                    else:
+                        f()
                 except Exception as e:
                     logger.exception("Tray action failed: %s", e)
             return callback
-        # dynamic actions
+
+
         dynamic_items = [
             MenuItem(label, make_callback(func))
             for label, func in self._tray_actions
         ]
 
-        # merge
         menu = Menu(*(dynamic_items + [Menu.SEPARATOR] + base_items))
         self.icon = Icon(self.ext_name, image, "Plotune Runtime", menu)
         threading.Thread(target=self.icon.run, daemon=False).start()

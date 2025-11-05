@@ -1,2 +1,2 @@
 # plotune_sdk/utils/__init__.py 
-from .logger import get_logger
+from .logger import get_logger, setup_uvicorn_logging

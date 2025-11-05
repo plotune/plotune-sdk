@@ -8,7 +8,7 @@ from plotune_sdk.models.config_models import ExtensionConfig
 
 from plotune_sdk.utils import get_logger
 
-logger = get_logger("plotune_core", console=False)
+logger = get_logger("plotune_core")
 
 class CoreClient:
     def __init__(self, core_url: str, config: dict, api_key: Optional[str] = None):
@@ -79,3 +79,55 @@ class CoreClient:
                 self._hb_task.cancel()
         await self.session.aclose()
         logger.debug("HTTP session closed.")
+
+    # Plotune Core API wrappers can be added here
+
+    async def toast(self, title: str="Notification", message: str="Extension Message", duration:int=2500):
+        url = f"{self.core_url}/api/toast"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        payload = {"title": title, "message": message, "duration": duration}
+        logger.debug(f"Sending toast with payload: {payload}")
+        r = await self.session.post(url, json=payload, headers=headers)
+        r.raise_for_status()
+        logger.info("Toast sent to core.")
+        return r.json()
+    
+    async def info(self):
+        url = f"{self.core_url}/api/info"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        logger.debug("Fetching core info")
+        r = await self.session.get(url, headers=headers)
+        r.raise_for_status()
+        info = r.json()
+        logger.debug(f"Core info received: {info}")
+        return info
+    
+    async def start_extension(self, ext_id: str):
+        url = f"{self.core_url}/api/start/{ext_id}"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        logger.debug(f"Starting extension {ext_id}")
+        r = await self.session.post(url, headers=headers)
+        r.raise_for_status()
+        logger.info(f"Extension {ext_id} started.")
+        return r.json()
+    
+    async def get_configuration(self):
+        url = f"{self.core_url}/api/configuration/current"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        logger.debug("Fetching configuration from core")
+        r = await self.session.get(url, headers=headers)
+        r.raise_for_status()
+        config = r.json()
+        logger.debug(f"Configuration received: {config}")
+        return config
+    
+    async def update_configuration_from_path(self, path: str):
+        url = f"{self.core_url}/api/configuration/load/from_path"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        payload = {"file_path": path}
+        logger.debug(f"Updating configuration from path: {path}")
+        r = await self.session.post(url, json=payload, headers=headers)
+        r.raise_for_status()
+        logger.info(f"Configuration updated from path: {path}")
+        return r.json()
+    

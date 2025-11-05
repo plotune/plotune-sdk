@@ -1,3 +1,4 @@
+#plotune_sdk/server.py
 import uvicorn
 import asyncio
 from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
@@ -5,9 +6,9 @@ from typing import Callable, Any, Dict, List, Tuple, Optional
 from plotune_sdk.models.file_models import FileReadRequest, FileMetaData
 from plotune_sdk.models.variable_models import Variable, NewVariable
 
-from plotune_sdk.utils import get_logger
+from plotune_sdk.utils import get_logger, setup_uvicorn_logging
 
-logger = get_logger("plotune_server", console=False)
+logger = get_logger("plotune_server")
 
 class PlotuneServer:
     def __init__(self, host: str = "localhost", port: int = 8000, log_level: str = "info"):
@@ -190,19 +191,10 @@ class PlotuneServer:
             return func
         return decorator
 
-    def start(self):
-        uvicorn.run(
-            self.api,
-            host=self.host,
-            port=self.port,
-            log_level=self.log_level,
-            access_log=False,
-            reload=False
-        )
-
     async def serve(self):
         """Run uvicorn.Server until stopped. This is awaitable."""
-        config = uvicorn.Config(self.api, host=self.host, port=self.port, log_level=self.log_level, access_log=False)
+        log_config = setup_uvicorn_logging()
+        config = uvicorn.Config(self.api, host=self.host, port=self.port, log_level=self.log_level, log_config=log_config, access_log=False)
         server = uvicorn.Server(config)
         self._uvicorn_server = server
         logger.info("Starting uvicorn server...")

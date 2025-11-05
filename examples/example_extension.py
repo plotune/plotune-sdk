@@ -1,5 +1,5 @@
 from datetime import datetime
-from time import time
+from time import time 
 EXAMPLE_EXTENSION_CONFIG = {
     "name": "Plotune File Extension",
     "id": "plotune_file_ext",
@@ -27,23 +27,12 @@ EXAMPLE_EXTENSION_CONFIG = {
         "target_port": 8000         # Core port
     },
     "configuration": {
-        "watch_path": {
-            "type": "string",
-            "description": "Path to the directory or file to monitor",
-            "default": ""
-        },
-        "auto_refresh": {
-            "type": "boolean",
-            "description": "Automatically refresh file list",
-            "default": True
-        }
     }
 }
 
 
 
 from plotune_sdk.runtime import PlotuneRuntime
-import asyncio
 
 runtime = PlotuneRuntime(
     ext_name="file-extension", 
@@ -51,15 +40,20 @@ runtime = PlotuneRuntime(
     port=8010,
     config=EXAMPLE_EXTENSION_CONFIG)
 
+runtime.core_client
+
 # register events on runtime.server
 @runtime.server.on_event("/health", method="GET")
-def health(_):
+async def health(_):
+    print("Health - running")
     return {"status": "running"}
 
 
 @runtime.tray("Say Hello")
-def say_hello():
+async def say_hello():
     print("Hello from tray!")
+    await runtime.core_client.toast(title="Tray Action", message="Hello from the tray menu!", duration=3000)
+
 
 @runtime.server.on_ws()
 async def stream(signal_name, websocket, _):
