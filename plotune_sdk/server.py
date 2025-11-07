@@ -10,14 +10,23 @@ from plotune_sdk.utils import get_logger, setup_uvicorn_logging, AVAILABLE_PORT
 
 logger = get_logger("plotune_server")
 
+
 class PlotuneServer:
     def __init__(self, host: str = "localhost", port: int = None, log_level: str = "info"):
+        """
+        Initialize the PlotuneServer instance.
+
+        Args:
+            host (str): Host address to bind the FastAPI server.
+            port (int, optional): TCP port to listen on. If None, uses AVAILABLE_PORT.
+            log_level (str): Logging verbosity level for Uvicorn.
+        """
         self.api = FastAPI()
         self.host = host
-        
         self.port = port or AVAILABLE_PORT
         self.log_level = log_level
         logger.debug(f"Initializing PlotuneServer at {host}:{port} with log level {log_level}")
+
         self._event_hooks: Dict[Tuple[str, str], List[Callable]] = {}
         self._ws_hooks: Dict[str, List[Callable]] = {}
         self._handler_policy: Dict[Tuple[str, str], bool] = {}
@@ -27,6 +36,12 @@ class PlotuneServer:
         self._register_builtin_routes()
 
     def init_policies(self):
+        """
+        Initialize default access policies for HTTP and WebSocket endpoints.
+
+        Each route has a 'required' flag that determines whether it must be
+        implemented by an extension, or can safely return a default response.
+        """
         self._ws_policy["fetch"] = False  # default optional
         self._handler_policy[("/health", "GET")] = False
         self._handler_policy[("/stop", "GET")] = False
@@ -40,6 +55,14 @@ class PlotuneServer:
         self._handler_policy[("/add-variable/{variable_name}", "POST")] = True
 
     def update_policy(self, path: str, method: str, required: bool):
+        """
+        Update or override the route policy for a specific HTTP method and path.
+
+        Args:
+            path (str): The HTTP route path (e.g., '/bridge/{variable_name}').
+            method (str): The HTTP method (GET, POST, etc.).
+            required (bool): Whether this route must be implemented by the extension.
+        """
         logger.debug(f"Updating policy for {method} {path} to {'required' if required else 'optional'}")
         self._handler_policy[(path, method.upper())] = required
 
@@ -56,7 +79,6 @@ class PlotuneServer:
             result = await self._trigger_event("/stop", "GET", request)
             return result or {"status": "ok"}
 
-        # 🔹 File Read — must return valid FileMetaData
 
         @self.api.post(
             "/read-file",
@@ -147,24 +169,42 @@ class PlotuneServer:
 
     # 🔸 HTTP event decorator
     def on_event(self, path: str, method: str = "GET"):
+        """
+        Decorator used to register a function as an HTTP event handler.
+
+        Args:
+            path (str): The HTTP route to listen for (e.g., '/bridge/{variable_name}').
+            method (str): HTTP method to handle (default: 'GET').
+
+        Returns:
+            Callable: The decorated function, now registered as a route handler.
+        """
         def decorator(func: Callable[..., Any]):
             key = (path, method.upper())
             self._event_hooks.setdefault(key, []).append(func)
             return func
         return decorator
 
-    # 🔸 WebSocket event decorator
     def on_ws(self, route: str = "fetch", require_response: bool = False):
-        """Register a WebSocket signal handler (shared for all signals)."""
+        """
+        Decorator used to register a WebSocket handler.
+
+        This allows extensions to listen to incoming WebSocket messages from Plotune.
+
+        Args:
+            route (str): The WebSocket route (default: 'fetch').
+            require_response (bool): Whether the WebSocket expects a response.
+
+        Returns:
+            Callable: The decorated async WebSocket handler function.
+        """
         self._ws_policy[route] = require_response
 
         def decorator(func: Callable[..., Any]):
             self._ws_hooks.setdefault(route, []).append(func)
             return func
         return decorator
-
-
-    # 🔸 Trigger HTTP events
+    
     async def _trigger_event(self, path: str, method: str, *args, **kwargs) -> Optional[Any]:
         key = (path, method.upper())
         if key not in self._event_hooks:
@@ -191,18 +231,38 @@ class PlotuneServer:
                 out = await out
             result = out
         return result
-
-    # 🔸 Dynamic route registration (HTTP)
     def route(self, path: str, method: str = "GET"):
+        """
+        Dynamically register a new HTTP route directly on the FastAPI app.
+
+        Args:
+            path (str): The route path (e.g., '/custom-endpoint').
+            method (str): The HTTP method (e.g., 'GET', 'POST').
+
+        Returns:
+            Callable: A decorator for the function to be used as the route handler.
+        """
         def decorator(func):
             self.api.add_api_route(path, func, methods=[method])
             return func
         return decorator
 
     async def serve(self):
-        """Run uvicorn.Server until stopped. This is awaitable."""
+        """
+        Start and run the Uvicorn server for this Plotune extension.
+
+        This coroutine blocks until the server is stopped. It is typically
+        awaited from the runtime or main entry point of the extension.
+        """
         log_config = setup_uvicorn_logging()
-        config = uvicorn.Config(self.api, host=self.host, port=self.port, log_level=self.log_level, log_config=log_config, access_log=False)
+        config = uvicorn.Config(
+            self.api,
+            host=self.host,
+            port=self.port,
+            log_level=self.log_level,
+            log_config=log_config,
+            access_log=False
+        )
         server = uvicorn.Server(config)
         self._uvicorn_server = server
         logger.info("Starting uvicorn server...")
@@ -210,8 +270,12 @@ class PlotuneServer:
         logger.info("Uvicorn server stopped.")
 
     async def shutdown(self):
-        """Trigger uvicorn server shutdown."""
+        """
+        Gracefully stop the Uvicorn server.
+
+        Signals the running server instance to exit by setting its internal
+        shutdown flag. This does not forcibly terminate active connections.
+        """
         if self._uvicorn_server:
             logger.info("Stopping uvicorn server...")
-            # signal the server to exit
             self._uvicorn_server.should_exit = True
