@@ -1,5 +1,6 @@
 from datetime import datetime
 from time import time 
+from plotune_sdk.utils import AVAILABLE_PORT
 
 EXAMPLE_EXTENSION_CONFIG = {
     "name": "Plotune File Extension",
@@ -23,7 +24,7 @@ EXAMPLE_EXTENSION_CONFIG = {
     "ask_form": True,
     "connection": {
         "ip": "127.0.0.1",          # where SDK server runs
-        "port": 8010,               # SDK server port
+        "port": AVAILABLE_PORT,     # SDK server port
         "target": "127.0.0.1",      # Plotune Core
         "target_port": 8000         # Core port
     },
@@ -37,8 +38,7 @@ from plotune_sdk.forms import FormLayout
 
 runtime = PlotuneRuntime(
     ext_name="file-extension", 
-    core_url="http://127.0.0.1:8000", 
-    port=8010,
+    core_url="http://127.0.0.1:8000",
     config=EXAMPLE_EXTENSION_CONFIG)
 
 @runtime.server.on_event("/fetch-meta")

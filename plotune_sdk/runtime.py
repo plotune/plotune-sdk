@@ -22,7 +22,7 @@ class PlotuneRuntime:
         ext_name: str = "default-extension",
         core_url: str = "http://127.0.0.1:8000",
         host: str = "127.0.0.1",
-        port: int = 8000,
+        port: int = None,
         config: Optional[dict] = None,
         tray_icon: bool = True,
     ):

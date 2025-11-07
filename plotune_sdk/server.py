@@ -6,15 +6,16 @@ from typing import Callable, Any, Dict, List, Tuple, Optional
 from plotune_sdk.models.file_models import FileReadRequest, FileMetaData
 from plotune_sdk.models.variable_models import Variable, NewVariable
 
-from plotune_sdk.utils import get_logger, setup_uvicorn_logging
+from plotune_sdk.utils import get_logger, setup_uvicorn_logging, AVAILABLE_PORT
 
 logger = get_logger("plotune_server")
 
 class PlotuneServer:
-    def __init__(self, host: str = "localhost", port: int = 8000, log_level: str = "info"):
+    def __init__(self, host: str = "localhost", port: int = None, log_level: str = "info"):
         self.api = FastAPI()
         self.host = host
-        self.port = port
+        
+        self.port = port or AVAILABLE_PORT
         self.log_level = log_level
         logger.debug(f"Initializing PlotuneServer at {host}:{port} with log level {log_level}")
         self._event_hooks: Dict[Tuple[str, str], List[Callable]] = {}
