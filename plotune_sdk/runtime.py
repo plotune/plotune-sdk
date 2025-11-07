@@ -17,6 +17,17 @@ from plotune_sdk.utils import get_logger
 logger = get_logger("extension")
 
 class PlotuneRuntime:
+    """
+    The main runtime manager for a Plotune extension.
+
+    This class orchestrates the interaction between:
+      - The local FastAPI server (PlotuneServer)
+      - The Plotune Core client (CoreClient)
+      - An optional system tray icon for user control
+
+    It handles asynchronous execution, graceful shutdown, and
+    background heartbeat communication with the Core.
+    """
     def __init__(
         self,
         ext_name: str = "default-extension",
@@ -26,6 +37,17 @@ class PlotuneRuntime:
         config: Optional[dict] = None,
         tray_icon: bool = True,
     ):
+        """
+        Initialize a PlotuneRuntime instance.
+
+        Args:
+            ext_name (str): Name of the extension instance.
+            core_url (str): Base URL of the Plotune Core.
+            host (str): Host address for the embedded server.
+            port (Optional[int]): Optional custom port for the server.
+            config (Optional[dict]): Configuration dictionary to pass to CoreClient.
+            tray_icon (bool): Whether to display a system tray icon for control.
+        """
         self.ext_name = ext_name
         self.core_url = core_url
         self.host = host
@@ -53,7 +75,22 @@ class PlotuneRuntime:
         self._tray_actions = []
 
     def tray(self, label: str):
-        """Decorator to register tray menu actions dynamically."""
+        """
+        Decorator to register custom actions in the system tray menu.
+
+        Example:
+            ```python
+            @runtime.tray("Custom Action")
+            def custom_action():
+                print("Custom action triggered from tray!")
+            ```
+
+        Args:
+            label (str): Display label for the tray menu item.
+
+        Returns:
+            Callable: Decorator for the tray function.
+        """
         def decorator(func):
             self._tray_actions.append((label, func))
             return func
@@ -88,6 +125,13 @@ class PlotuneRuntime:
         await self.core_client.stop()
 
     def start(self):
+        """
+        Start the PlotuneRuntime environment.
+
+        Launches the asynchronous event loop in a separate thread,
+        starts the PlotuneServer, connects to the Core, and optionally
+        creates a system tray icon for manual control.
+        """
         logger.info(f"Starting PlotuneRuntime for {self.ext_name} on {self.host}:{self.port}")
         self.thread.start()
         if self.tray_icon_enabled:
@@ -102,7 +146,12 @@ class PlotuneRuntime:
             signal.signal(s, handler)
 
     def stop(self):
-        """Graceful stop: schedule shutdown in the runtime loop."""
+        """
+        Gracefully stop the runtime and all active components.
+
+        Stops the CoreClient heartbeat, signals the server to shut down,
+        and removes the tray icon if present.
+        """
         logger.info("Stopping PlotuneRuntime (graceful)...")
 
         # stop core client safely
@@ -127,7 +176,12 @@ class PlotuneRuntime:
 
 
     def kill(self):
-        """Immediate kill."""
+        """
+        Immediately terminate the runtime process.
+
+        This method forcefully stops the event loop, tray icon, and exits the process.
+        Should only be used when graceful shutdown fails or in critical conditions.
+        """
         logger.warning("Killing PlotuneRuntime (force) ...")
         # try graceful first
         self.stop()

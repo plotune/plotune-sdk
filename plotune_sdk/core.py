@@ -12,6 +12,14 @@ logger = get_logger("plotune_core")
 
 class CoreClient:
     def __init__(self, core_url: str, config: dict, api_key: Optional[str] = None):
+        """
+        Initialize the CoreClient instance for communication with the Plotune Core.
+
+        Args:
+            core_url (str): Base URL of the Plotune Core API.
+            config (dict): Extension configuration dictionary.
+            api_key (Optional[str]): Optional bearer token for authentication.
+        """
         self.core_url = core_url.rstrip("/")
         self.session = httpx.AsyncClient(timeout=5.0)
         self.config = config
@@ -24,6 +32,15 @@ class CoreClient:
         self.heartbeat_fail_handler:callable = None
 
     async def register(self):
+        """
+        Register this extension instance with the Plotune Core.
+
+        Sends the current configuration to the Core for registration.
+        If registration fails and a fail handler is set, it will be called.
+
+        Raises:
+            httpx.HTTPError: If the registration request fails.
+        """
         try:
             url = f"{self.core_url}/register"
             headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
@@ -39,6 +56,15 @@ class CoreClient:
 
 
     async def send_heartbeat(self, ext_id: str) -> bool:
+        """
+        Send a heartbeat signal to the Plotune Core.
+
+        Args:
+            ext_id (str): Extension ID as registered with the Core.
+
+        Returns:
+            bool: True if the heartbeat was successful, False otherwise.
+        """
         url = f"{self.core_url}/heartbeat"
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         payload = {"id": ext_id, "timestamp": time()}
@@ -53,6 +79,17 @@ class CoreClient:
             return False
 
     async def heartbeat_loop(self, ext_id: str, interval: int = 15, max_failures: int = 3):
+        """
+        Continuously send periodic heartbeat messages to the Core.
+
+        Args:
+            ext_id (str): Extension ID.
+            interval (int): Base heartbeat interval in seconds.
+            max_failures (int): Maximum allowed consecutive failures before stopping.
+
+        Notes:
+            The wait interval is dynamically reduced after failures to attempt recovery faster.
+        """
         fail_count = 0
         while not self._stop_event.is_set():
             success = await self.send_heartbeat(ext_id)
@@ -95,6 +132,17 @@ class CoreClient:
     # Plotune Core API wrappers can be added here
 
     async def toast(self, title: str="Notification", message: str="Extension Message", duration:int=2500):
+        """
+        Send a toast (notification) message to the Plotune UI.
+
+        Args:
+            title (str): Title of the notification.
+            message (str): Message body text.
+            duration (int): Duration in milliseconds for the toast to remain visible.
+
+        Returns:
+            dict: JSON response from the Core.
+        """
         url = f"{self.core_url}/api/toast"
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         payload = {"title": title, "message": message, "duration": duration}
@@ -105,6 +153,12 @@ class CoreClient:
         return r.json()
     
     async def info(self):
+        """
+        Retrieve system information from the Plotune Core.
+
+        Returns:
+            dict: Information about the running Core instance.
+        """
         url = f"{self.core_url}/api/info"
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         logger.debug("Fetching core info")
@@ -115,6 +169,15 @@ class CoreClient:
         return info
     
     async def start_extension(self, ext_id: str):
+        """
+        Request the Core to start a specific extension.
+
+        Args:
+            ext_id (str): ID of the extension to start.
+
+        Returns:
+            dict: JSON response from the Core.
+        """
         url = f"{self.core_url}/api/start/{ext_id}"
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         logger.debug(f"Starting extension {ext_id}")
@@ -124,6 +187,12 @@ class CoreClient:
         return r.json()
     
     async def get_configuration(self):
+        """
+        Fetch the currently active configuration from the Core.
+
+        Returns:
+            dict: The current configuration data.
+        """
         url = f"{self.core_url}/api/configuration/current"
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         logger.debug("Fetching configuration from core")
@@ -134,6 +203,15 @@ class CoreClient:
         return config
     
     async def update_configuration_from_path(self, path: str):
+        """
+        Instruct the Core to reload configuration from a specific file path.
+
+        Args:
+            path (str): Filesystem path to the configuration file.
+
+        Returns:
+            dict: JSON response indicating success or failure.
+        """
         url = f"{self.core_url}/api/configuration/load/from_path"
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         payload = {"file_path": path}
