@@ -78,6 +78,44 @@ class CoreClient:
             logger.warning(f"Heartbeat failed: {e}")
             return False
 
+    async def add_variable(self, variable_name:str, variable_desc:str="") -> dict:
+        """
+        Request the Core to add a new variable.
+
+        Args:
+            variable_name (str): Name of the variable to add.
+            variable_desc (str): Description of the variable.
+
+        Returns:
+            dict: JSON response from the Core.
+        """
+        url = f"{self.core_url}/add/variable"
+        extension_id = self.config.get("id", "unknown")
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        payload = {
+            "name": variable_name,
+            "desc": variable_desc,
+            "extension_id": extension_id
+        }
+        logger.debug(f"Adding variable with payload: {payload}")
+        r = await self.session.post(url, json=payload, headers=headers)
+        r.raise_for_status()
+        logger.info(f"Variable '{variable_name}' added to core.")
+        return r.json()
+    
+    def add_variable_sync(self, variable_name:str, variable_desc:str="") -> dict:
+        """
+        Synchronous wrapper to add a new variable to the Core.
+
+        Args:
+            variable_name (str): Name of the variable to add.
+            variable_desc (str): Description of the variable.
+
+        Returns:
+            dict: JSON response from the Core.
+        """
+        return asyncio.run(self.add_variable(variable_name, variable_desc))
+
     async def heartbeat_loop(self, ext_id: str, interval: int = 15, max_failures: int = 3):
         """
         Continuously send periodic heartbeat messages to the Core.

@@ -40,41 +40,28 @@ runtime = PlotuneRuntime(
     port=8010,
     config=EXAMPLE_EXTENSION_CONFIG)
 
-client = runtime.core_client
+import threading
 
-# register events on runtime.server
-@runtime.server.on_event("/health", method="GET")
-async def health(_):
-    print("Health - running")
-    return {"status": "running"}
-
-
-@runtime.tray("Say Hello")
-async def say_hello():
-    print("Hello from tray!")
-    await client.toast(title="Tray Action", message="Hello from the tray menu!", duration=3000)
-
-@runtime.tray("Add Random Variable")
-async def say_hello():
-    import random
-    var_name = f"RandomVar_{random.randint(1000,9999)}"
-    await client.add_variable(variable_name=var_name, variable_desc="A randomly added variable")
-
-
-@runtime.server.on_ws()
-async def stream(signal_name, websocket, _):
-    import random, asyncio
-    try:
-        while True:
-            await websocket.send_json({
-                "timestamp": time.time(),
-                "value": random.random(),
-                "desc": f"{signal_name}",
-                "status": True
-            })
-            await asyncio.sleep(1)
-    except Exception:
-        pass
+def start_runtime():
+    runtime.start()
 
 if __name__ == "__main__":
-    runtime.start()
+    th = threading.Thread(target=start_runtime, daemon=True)
+    th.start()
+
+from time import sleep
+sleep(2)  # wait for runtime to start   
+import httpx
+import random
+
+url = "http://127.0.0.1:8000"
+
+payload = {
+    "name": f"Var_{random.randint(100,999)}",
+    "desc": f"Desc_{random.randint(1000,9999)}",
+    "extension_id": "plotune_file_ext"
+}
+
+r = httpx.post(f"{url}/add/variable", json=payload)
+print("Status:", r.status_code)
+print("Response:", r.text)
