@@ -7,11 +7,12 @@ from typing import Optional
 from plotune_sdk.models.config_models import ExtensionConfig
 
 from plotune_sdk.utils import get_logger
+from plotune_sdk.src.authenticator import Authenticator
 
 logger = get_logger("plotune_core")
 
 class CoreClient:
-    def __init__(self, core_url: str, config: dict, api_key: Optional[str] = None):
+    def __init__(self, runtime, core_url: str, config: dict):
         """
         Initialize the CoreClient instance for communication with the Plotune Core.
 
@@ -20,10 +21,12 @@ class CoreClient:
             config (dict): Extension configuration dictionary.
             api_key (Optional[str]): Optional bearer token for authentication.
         """
+        self.runtime = runtime
         self.core_url = core_url.rstrip("/")
         self.session = httpx.AsyncClient(timeout=5.0)
         self.config = config
-        self.api_key = api_key
+        self.authenticator = Authenticator(self)
+        self.api_key = self.authenticator.auth_token
         self._stop_event = asyncio.Event()
         self._hb_task: Optional[asyncio.Task] = None
         logger.debug(f"CoreClient initialized with core_url: {self.core_url}")

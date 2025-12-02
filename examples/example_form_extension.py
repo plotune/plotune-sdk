@@ -90,6 +90,11 @@ async def say_hello():
     var_name = f"RandomVar_{random.randint(1000,9999)}"
     await runtime.core_client.add_variable(variable_name=var_name, variable_desc="A randomly added variable")
 
+@runtime.tray("Get Token")
+async def get_token():
+    token = await runtime.core_client.authenticator.get_license_token()
+    print("Token:", token)
+
 @runtime.server.on_ws()
 async def stream(signal_name, websocket, _):
     print(signal_name,"requested")

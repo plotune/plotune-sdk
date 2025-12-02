@@ -12,7 +12,7 @@ logger = get_logger("plotune_server")
 
 
 class PlotuneServer:
-    def __init__(self, host: str = "localhost", port: int = None, log_level: str = "info"):
+    def __init__(self, runtime, host: str = "localhost", port: int = None, log_level: str = "info"):
         """
         Initialize the PlotuneServer instance.
 
@@ -21,6 +21,7 @@ class PlotuneServer:
             port (int, optional): TCP port to listen on. If None, uses AVAILABLE_PORT.
             log_level (str): Logging verbosity level for Uvicorn.
         """
+        self.runtime = runtime
         self.api = FastAPI()
         self.host = host
         self.port = port or AVAILABLE_PORT

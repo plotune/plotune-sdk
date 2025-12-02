@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 from typing import Callable, List, Tuple
 
 from plotune_sdk.src import PlotuneServer, CoreClient
-from plotune_sdk.utils import get_logger
+from plotune_sdk.utils import get_logger, get_cache
 
 logger = get_logger("extension")
 
@@ -53,7 +53,8 @@ class PlotuneRuntime:
         self.port = port
         self.tray_icon_enabled = tray_icon
         self.config = config or {"id": ext_name}
-        self.server = PlotuneServer(host=self.host, port=self.port)
+        self.cache = get_cache(ext_name)
+        self.server = PlotuneServer(self, host=self.host, port=self.port)
 
         @self.server.on_event("/stop", method="GET")
         async def handle_stop_request(_):
@@ -61,7 +62,7 @@ class PlotuneRuntime:
             self.stop()
             return {"status": "stopping"}
 
-        self.core_client = CoreClient(core_url=self.core_url, config=self.config)
+        self.core_client = CoreClient(self, core_url=self.core_url, config=self.config)
         self.core_client.register_fail_handler = self.stop
         self.core_client.heartbeat_fail_handler = self.stop
 
