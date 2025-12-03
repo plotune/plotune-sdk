@@ -78,7 +78,12 @@ class PlotuneRuntime:
                 self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             except Exception:
                 pass
-            self.loop.close()
+            
+            try:
+                self.loop.close()
+                self.loop.stop()
+            except:
+                self.kill()
 
     async def _main(self):
         await self.core_client.start()

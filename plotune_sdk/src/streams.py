@@ -5,7 +5,7 @@ from multiprocessing import Process, Queue
 from typing import Callable, Any, Dict, List, Optional
 from plotune_sdk.src.workers.consume_worker import worker_entry
 from plotune_sdk.utils import get_logger
-
+from queue import Empty
 logger = get_logger("plotune_stream")
 
 
@@ -86,13 +86,13 @@ class PlotuneStream:
             try:
                 # NON-BLOCKING poll + timeout
                 item = await asyncio.to_thread(q.get_nowait)
-            except (queue.Empty, ValueError, OSError, EOFError):
-                # queue boş, process ölmüş olabilir, veya kapatılmış
-                await asyncio.sleep(0.1)  # hafif bekle
-                continue
             except asyncio.CancelledError:
                 logger.info(f"[{group}] Queue reader cancelled")
                 break
+            except (Empty, ValueError, OSError, EOFError):
+                
+                await asyncio.sleep(0.1)
+                continue
             except Exception as exc:
                 logger.exception(f"[{group}] Unexpected queue error: {exc}")
                 await asyncio.sleep(0.5)
