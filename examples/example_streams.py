@@ -2,7 +2,7 @@ from datetime import datetime
 from time import time 
 from plotune_sdk.utils import AVAILABLE_PORT
 
-EXAMPLE_EXTENSION_CONFIG = {
+EXAMPLE_EXTENSION_CONFIG = { ## Dummy
     "name": "Plotune File Extension",
     "id": "plotune_file_ext",
     "version": "1.0.0",
@@ -12,7 +12,7 @@ EXAMPLE_EXTENSION_CONFIG = {
     "cmd": [
         "python",
         "-m",
-        "examples.example_form_extension"
+        "examples.example_streams"
     ],
     "enabled": True,
     "last_updated": datetime.utcnow().strftime("%Y-%m-%d"),
@@ -31,10 +31,15 @@ EXAMPLE_EXTENSION_CONFIG = {
     "configuration": {
     }
 }
+import sys
+def debug(*args):
+    print("[DEBUG]", *args)
+    sys.stdout.flush()
+
 
 from plotune_sdk import PlotuneRuntime
 from plotune_sdk import FormLayout
-
+from plotune_sdk.src.streams import PlotuneStream
 
 runtime = PlotuneRuntime(
     ext_name="file-extension", 
@@ -84,19 +89,9 @@ async def get_answer(data: dict):
     random.seed(data.get("seed"))
     return {"status": "success", "message": "Form saved!"}
 
-@runtime.tray("Add Random Variable")
-async def say_hello():
-    import random
-    var_name = f"RandomVar_{random.randint(1000,9999)}"
-    await runtime.core_client.add_variable(variable_name=var_name, variable_desc="A randomly added variable")
-
-@runtime.tray("Get Token")
-async def get_token():
-    username, token = await runtime.core_client.authenticator.get_license_token()
-    print("Token:", token)
 
 @runtime.server.on_ws()
-async def stream(signal_name, websocket, _):
+async def my_socket(signal_name, websocket, _):
     print(signal_name,"requested")
     try:
         while True:
@@ -108,5 +103,53 @@ async def stream(signal_name, websocket, _):
     except Exception:
         pass
 
-if __name__ == "__main__":
+
+from plotune_sdk.src import PlotuneStream
+import requests
+
+async def main():
+
     runtime.start()
+
+    username, license_token = await runtime.core_client.authenticator.get_license_token()
+    API_URL = "https://api.plotune.net" 
+    stream_url = f"{API_URL}/auth/stream"
+
+
+    headers = {
+        "Authorization": f"Bearer {license_token}"
+    }
+    for i in range(3):
+        response = requests.get(stream_url, headers=headers)
+
+        stream_token = response.json().get("token")
+        if stream_token:
+            break
+    if not stream_token:
+        print("No Stream Token Recived",username,license_token,stream_url,end="\n")
+        response.raise_for_status()
+    stream = PlotuneStream(runtime, "my-second-stream")
+    stream.username = "veyselkantarcilar"
+
+    @stream.on_consume("prices")
+    async def handle_price(msg):
+        print("[PRICE]", msg)
+
+    @stream.on_consume("trades")
+    async def handle_trade(msg):
+        print("[TRADE]", msg)
+
+    print(stream.username, stream_token, "\n", license_token)
+    await stream.start(token=stream_token)
+
+    # keep running
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await stream.stop()
+
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+    

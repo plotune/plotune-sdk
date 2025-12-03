@@ -34,7 +34,6 @@ class Authenticator:
         self.authenticated = True
         return self.auth_token
         
-    @lru_cache(maxsize=None)
     async def get_license_token(self) -> str:
         if not self.authenticated:
             await self.get_token()
@@ -52,4 +51,4 @@ class Authenticator:
         if not token:
             raise Exception("Failed to retrieve license token from Core.")
         
-        return token
+        return username, token
