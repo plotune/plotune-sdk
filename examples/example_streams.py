@@ -1,18 +1,24 @@
 from datetime import datetime
-from time import time 
+from time import time
+import sys
+import random
+import asyncio
+
+from plotune_sdk import PlotuneRuntime, FormLayout
 from plotune_sdk.utils import AVAILABLE_PORT
 
-EXAMPLE_EXTENSION_CONFIG = { ## Dummy
+
+EXAMPLE_EXTENSION_CONFIG = {
     "name": "Plotune File Extension",
     "id": "plotune_file_ext",
     "version": "1.0.0",
     "description": "Provides file operations (read/write) and WebSocket streaming to Plotune Core.",
-    "mode": "online",  # allowed values: online | offline | hybrit
+    "mode": "online",
     "author": "Plotune SDK Team",
     "cmd": [
         "python",
         "-m",
-        "examples.example_streams"
+        "examples.example_streams",
     ],
     "enabled": True,
     "last_updated": datetime.utcnow().strftime("%Y-%m-%d"),
@@ -23,66 +29,75 @@ EXAMPLE_EXTENSION_CONFIG = { ## Dummy
     "file_formats": ["csv", "txt", "json"],
     "ask_form": True,
     "connection": {
-        "ip": "127.0.0.1",          # where SDK server runs
-        "port": AVAILABLE_PORT,     # SDK server port
-        "target": "127.0.0.1",      # Plotune Core
-        "target_port": 8000         # Core port
+        "ip": "127.0.0.1",
+        "port": AVAILABLE_PORT,
+        "target": "127.0.0.1",
+        "target_port": 8000,
     },
-    "configuration": {
-    }
+    "configuration": {},
 }
-import sys
+
+
 def debug(*args):
     print("[DEBUG]", *args)
     sys.stdout.flush()
 
 
-from plotune_sdk import PlotuneRuntime
-from plotune_sdk import FormLayout
-from plotune_sdk.src.streams import PlotuneStream
-
 runtime = PlotuneRuntime(
-    ext_name="file-extension", 
+    ext_name="file-extension",
     core_url="http://127.0.0.1:8000",
-    config=EXAMPLE_EXTENSION_CONFIG)
+    config=EXAMPLE_EXTENSION_CONFIG,
+)
+
 
 @runtime.server.on_event("/fetch-meta")
-async def my_variables(data:dict):
-    return {"headers": [
-        "Signal_Name_A",
-        "Signal_Name_B",
-        "Signal_Name_C",
-        "Signal_Name_D"
-    ]}
+async def my_variables(data: dict):
+    return {
+        "headers": [
+            "Signal_Name_A",
+            "Signal_Name_B",
+            "Signal_Name_C",
+            "Signal_Name_D",
+        ]
+    }
+
 
 @runtime.server.on_event("/form")
-async def generate_the_form(data:dict):
+async def generate_the_form(data: dict):
     form = FormLayout()
 
-    # Tab 1: Settings
     form.add_tab("Settings") \
         .add_text("username", "Username", default="", required=True) \
         .add_text("test_field", "Test", default="", required=False) \
-        .add_number("seed", "Seed", default=100, min_val=10, max_val=2000, required=False) \
-        .add_combobox("color", "Color Pick", options=["Red", "Green", "Blue"], default="", required=False)
+        .add_number(
+            "seed", "Seed", default=100, min_val=10, max_val=2000, required=False
+        ) \
+        .add_combobox(
+            "color",
+            "Color Pick",
+            options=["Red", "Green", "Blue"],
+            default="",
+            required=False,
+        )
 
-    # Tab 2: Custom (note: added 'test_field' twice as in your example, but keys must be unique—adjust if needed)
     form.add_tab("Custom") \
         .add_file("file", "Optional file", required=False)
 
-    # Group: Custom Group
     form.add_group("Custom Group") \
         .add_checkbox("enable", "Enable", default=True, required=False) \
-        .add_button("forward", "Visit", action={
-            "method": "POST",
-            "url": "http://example.com/api/upload",
-            "payload_fields": ["upload_file"]
-        })
+        .add_button(
+            "forward",
+            "Visit",
+            action={
+                "method": "POST",
+                "url": "http://example.com/api/upload",
+                "payload_fields": ["upload_file"],
+            },
+        )
 
-    # Generate and print the schema (this matches your schema_json exactly)
     return form.to_schema()
 
-import random, asyncio
+
 @runtime.server.on_event("/form", method="POST")
 async def get_answer(data: dict):
     print("Form submitted with data:", data)
@@ -92,13 +107,12 @@ async def get_answer(data: dict):
 
 @runtime.server.on_ws()
 async def my_socket(signal_name, websocket, _):
-    print(signal_name,"requested")
+    print(f"{signal_name} requested")
     try:
         while True:
-            await websocket.send_json({
-                "timestamp":time(),
-                "value" : random.random()
-            })
+            await websocket.send_json(
+                {"timestamp": time(), "value": random.random()}
+            )
             await asyncio.sleep(0.03)
     except Exception:
         pass
@@ -106,14 +120,15 @@ async def my_socket(signal_name, websocket, _):
 
 stream = runtime.create_stream("my-second-stream")
 
+
 @stream.on_consume()
 async def on_price(msg):
     data = msg.get("payload")
     key = data.get("key")
     if key == "Voltage":
         timestamp, value = float(data.get("time")), float(data.get("value"))
-        print(key,timestamp,value)
-        await stream.aproduce("Current", timestamp, value/2)
+        print(key, timestamp, value)
+        await stream.aproduce("Current", timestamp, value / 2)
 
 
 if __name__ == "__main__":

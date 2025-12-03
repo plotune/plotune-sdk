@@ -1,14 +1,20 @@
-from diskcache import Cache
-from platformdirs import user_cache_dir
 from functools import lru_cache
 
-API_URL = "https://api.plotune.net" 
-STREAM_URL = "https://stream.plotune.net" 
+from diskcache import Cache
+from platformdirs import user_cache_dir
+
+API_URL = "https://api.plotune.net"
+STREAM_URL = "https://stream.plotune.net"
+
 
 @lru_cache(maxsize=None)
-def get_cache(extension_id:str) -> Cache:
-    APP_NAME = extension_id
-    APP_AUTHOR = "BAKSI"
-    USER_CACHE_DIR = user_cache_dir(APP_NAME, APP_AUTHOR)
-    CACHE = Cache(USER_CACHE_DIR)
-    return CACHE
+def get_cache(extension_id: str) -> Cache:
+    """
+    Returns a disk-backed cache for the given extension ID.
+    Uses platform-specific cache directory.
+    """
+    app_name = extension_id
+    app_author = "BAKSI"
+    cache_dir = user_cache_dir(app_name, app_author)
+    cache = Cache(cache_dir)
+    return cache

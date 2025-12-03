@@ -9,11 +9,14 @@ LOG_DIR = os.path.join(tempfile.gettempdir(), "Plotune", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, f"plotune_sdk{PID}.log")
 
-MAX_LOG_SIZE = 5 * 1024 * 1024  # bytes
-BACKUP_COUNT = 1  # bir eski dosya tutulur
+MAX_LOG_SIZE = 5 * 1024 * 1024  # 5 MB
+BACKUP_COUNT = 1  # Keep one backup log file
 
 
 def get_logger(name: str = "plotune_sdk") -> logging.Logger:
+    """
+    Returns a configured logger with rotating file handler and optional console output.
+    """
     logger = logging.getLogger(name)
 
     if logger.handlers:
@@ -21,7 +24,7 @@ def get_logger(name: str = "plotune_sdk") -> logging.Logger:
 
     logger.setLevel(logging.INFO)
 
-    # 🔸 File Handler — rotates automatically
+    # File handler — rotates automatically
     file_handler = RotatingFileHandler(
         LOG_FILE,
         maxBytes=MAX_LOG_SIZE,
@@ -33,12 +36,11 @@ def get_logger(name: str = "plotune_sdk") -> logging.Logger:
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    # 🔸 Optional Console Handler
-    if not getattr(sys, 'frozen', False):
+    # Optional console handler for non-frozen environments
+    if not getattr(sys, "frozen", False):
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
@@ -46,54 +48,57 @@ def get_logger(name: str = "plotune_sdk") -> logging.Logger:
     logger.debug(f"Logger initialized at {LOG_FILE}")
     return logger
 
-def setup_uvicorn_logging():
-    """Set up uvicorn logging to work without stdout"""
-    # Create logs directory if it doesn't exist
+
+def setup_uvicorn_logging() -> dict:
+    """
+    Returns a dict suitable for uvicorn logging configuration.
+    Chooses file-based logging if running in a frozen/bundled environment.
+    """
     os.makedirs(LOG_DIR, exist_ok=True)
     log_file = os.path.join(LOG_DIR, f"uvicorn{PID}.log")
 
-    
-    log_config = {
+    file_config = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
             "default": {
                 "()": "uvicorn.logging.DefaultFormatter",
                 "fmt": "%(levelprefix)s %(message)s",
-                "use_colors": False,  # Disable colors when no console
+                "use_colors": False,
             },
             "access": {
                 "()": "uvicorn.logging.AccessFormatter",
                 "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
-                "use_colors": False,  # Disable colors when no console
+                "use_colors": False,
             },
         },
         "handlers": {
             "default": {
-                "formatter": "default",
                 "class": "logging.StreamHandler",
+                "formatter": "default",
                 "stream": "ext://sys.stderr",
             },
             "access": {
-                "formatter": "access",
                 "class": "logging.StreamHandler",
+                "formatter": "access",
                 "stream": "ext://sys.stdout",
             },
             "file": {
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": log_file,
-                "maxBytes": 10485760,  # 10MB
+                "maxBytes": 10 * 1024 * 1024,  # 10 MB
                 "backupCount": 3,
                 "formatter": "default",
-            }
+            },
         },
         "loggers": {
             "uvicorn": {"handlers": ["file"], "level": "WARNING", "propagate": False},
-            "uvicorn.error": {"level": "WARNING", "handlers": ["file"], "propagate": False},
+            "uvicorn.error": {"handlers": ["file"], "level": "WARNING", "propagate": False},
             "uvicorn.access": {"handlers": ["file"], "level": "WARNING", "propagate": False},
         },
     }
-    console_based_config = {
+
+    console_config = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
@@ -126,13 +131,5 @@ def setup_uvicorn_logging():
             "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
         },
     }
-    if getattr(sys, 'frozen', False):
-        return log_config
-    return console_based_config
 
-if __name__ == "__main__":
-    log = get_logger(console=True)
-    log.info("Logger initialized")
-    log.debug("Debug message test")
-    log.warning("Rotation test will trigger after ~5 MB of logs.")
-
+    return file_config if getattr(sys, "frozen", False) else console_config
