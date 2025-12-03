@@ -118,12 +118,8 @@ async def on_trade(msg):
 async def on_anything(msg):
     print("🎲 OTHER:", msg)
 
-async def main():
+if __name__ == "__main__":
     runtime.start()
     print("🚀 Extension running — all streams auto-started & managed!")
-    await asyncio.Event().wait()  # Keep alive forever
-
-if __name__ == "__main__":
-    asyncio.run(main())
     
 #D:/Projects/BAKSI/plotune-sdk/.venv/Scripts/python -m examples.example_streams

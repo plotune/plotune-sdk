@@ -60,7 +60,7 @@ class PlotuneStream:
         q = Queue()
         p = Process(
             target=worker_entry,
-            args=(self.username, self.stream_name, group, token, q),
+            args=(self.username, self.stream_name, group, token, q, self.runtime._stop_event),
             daemon=True,
         )
         p.start()
@@ -78,78 +78,79 @@ class PlotuneStream:
     # Async queue reader - uses asyncio.to_thread to avoid blocking event loop
     # -----------------------------------------------------------------
     async def _queue_reader(self, group: str, q: Queue):
-        """
-        Continuously read from multiprocessing.Queue using a background thread
-        (via asyncio.to_thread) so main loop is never blocked.
-        """
         handlers = self.handlers.get(group, [])
         logger.info(f"[{group}] Queue reader started (async)")
+        import queue
+        # Her 100ms'de bir queue'yu poll et (blocking değil!)
+        while True:
+            try:
+                # NON-BLOCKING poll + timeout
+                item = await asyncio.to_thread(q.get_nowait)
+            except (queue.Empty, ValueError, OSError, EOFError):
+                # queue boş, process ölmüş olabilir, veya kapatılmış
+                await asyncio.sleep(0.1)  # hafif bekle
+                continue
+            except asyncio.CancelledError:
+                logger.info(f"[{group}] Queue reader cancelled")
+                break
+            except Exception as exc:
+                logger.exception(f"[{group}] Unexpected queue error: {exc}")
+                await asyncio.sleep(0.5)
+                continue
 
-        try:
-            while True:
-                # blocking queue.get executed in a separate thread
+            # Gerçek mesaj geldi
+            for h in handlers:
                 try:
-                    item = await asyncio.to_thread(q.get)
-                except asyncio.CancelledError:
-                    # task was cancelled -> break
-                    break
+                    asyncio.create_task(h(item))
                 except Exception as exc:
-                    logger.exception(f"[{group}] Error reading queue: {exc}")
-                    await asyncio.sleep(1.0)
-                    continue
+                    logger.exception(f"[{group}] Handler error: {exc}")
 
-                # item could be dicts like {"type": "message", "payload": ...}
-                # dispatch to handlers concurrently
-                for h in handlers:
-                    try:
-                        asyncio.create_task(h(item))
-                    except Exception as exc:
-                        logger.exception(f"[{group}] Error scheduling handler: {exc}")
-        finally:
-            logger.info(f"[{group}] Queue reader stopped")
+                except asyncio.CancelledError:
+                    logger.info(f"[{group}] Queue reader cancelled gracefully")
+                    break
+
+        logger.info(f"[{group}] Queue reader stopped")
 
     # -----------------------------------------------------------------
     # Stop/cleanup
     # -----------------------------------------------------------------
     async def stop(self):
-        """
-        Stop all workers and cancel queue reader tasks. This does NOT forcibly kill processes;
-        it attempts graceful shutdown then terminates if necessary.
-        """
-        logger.info("Stopping all stream workers...")
-        # cancel queue tasks
-        for group, task in list(self._queue_tasks.items()):
+        logger.info("Stopping stream workers...")
+
+        # 1. Tüm queue reader task'lerini iptal et
+        for task in self._queue_tasks.values():
             task.cancel()
-            try:
-                await asyncio.wait_for(task, timeout=2.0)
-            except asyncio.TimeoutError:
-                logger.debug(f"[{group}] queue reader did not stop in time, continuing")
-            except Exception:
-                pass
-            self._queue_tasks.pop(group, None)
 
-        # terminate processes
-        for group, proc in list(self.workers.items()):
-            if proc.is_alive():
-                try:
-                    proc.terminate()
-                    proc.join(timeout=2.0)
-                    if proc.is_alive():
-                        proc.kill()
-                except Exception:
-                    logger.exception(f"Failed to terminate worker for group={group}")
-            self.workers.pop(group, None)
-
-        # close queues
-        for group, q in list(self.queues.items()):
+        # 2. Queue'ları kapat (Windows'ta çok önemli!)
+        for q in self.queues.values():
             try:
                 q.close()
-                q.cancel_join_thread()
-            except Exception:
+                q.join_thread()  # bu çok kritik!
+            except:
                 pass
-            self.queues.pop(group, None)
 
-        logger.info("All workers stopped.")
+        # 3. Worker process'leri terminate et
+        for proc in self.workers.values():
+            if proc.is_alive():
+                proc.terminate()
+
+        # 4. Kısa bekle, sonra kill
+        await asyncio.sleep(0.5)
+        for proc in self.workers.values():
+            if proc.is_alive():
+                logger.warning(f"Killing stubborn worker PID {proc.pid}")
+                proc.kill()
+            proc.join(timeout=1)
+
+        # 5. Task'lerin bitmesini bekle (artık bloklamaz!)
+        if self._queue_tasks:
+            await asyncio.gather(*self._queue_tasks.values(), return_exceptions=True)
+
+        self.workers.clear()
+        self.queues.clear()
+        self._queue_tasks.clear()
+
+        logger.info("All stream workers fully stopped.")
 
     # -----------------------------------------------------------------
     # Optional helpers

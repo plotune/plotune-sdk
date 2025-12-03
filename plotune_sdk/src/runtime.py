@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import multiprocessing
 import signal
 import sys
 from typing import Optional, Dict
@@ -32,7 +33,8 @@ class PlotuneRuntime:
         self.tray_icon_enabled = tray_icon
         self.config = config or {"id": ext_name}
         self.cache = get_cache(ext_name)
-
+        self._stop_event = multiprocessing.Event()
+        self.end_signal = asyncio.Event()
         self.server = PlotuneServer(self, host=self.host, port=self.port)
 
         @self.server.on_event("/stop", method="GET")
@@ -54,6 +56,7 @@ class PlotuneRuntime:
         self._streams: Dict[str, PlotuneStream] = {}
         self._stream_token_cache: Optional[str] = None
         self._stream_username_cache: Optional[str] = None
+        self._stream_loops = []
 
     def tray(self, label: str):
         def decorator(func):
@@ -85,18 +88,32 @@ class PlotuneRuntime:
             await self._ensure_stream_running(stream)
 
         self._server_task = asyncio.create_task(self.server.serve())
-        await asyncio.wait([self._server_task], return_when=asyncio.FIRST_COMPLETED)
 
-        # Final guaranteed cleanup
-        await self._stop_all_streams()
-        await self.core_client.stop()
+        # Wait until server finishes OR is cancelled. Handle CancelledError cleanly.
+        try:
+            await asyncio.wait([self._server_task], return_when=asyncio.FIRST_COMPLETED)
+        except asyncio.CancelledError:
+            logger.info("Runtime main: server task cancelled (shutdown requested).")
+        finally:
+            # Final guaranteed cleanup
+            try:
+                await self._stop_all_streams()
+            except Exception as e:
+                logger.exception("Error while stopping streams: %s", e)
+            try:
+                await self.core_client.stop()
+            except Exception as e:
+                logger.exception("Error while stopping core client: %s", e)
+
 
     async def _stop_all_streams(self):
+        self._stop_event.set()
         if not self._streams:
             return
         tasks = [stream.stop() for stream in self._streams.values()]
         await asyncio.gather(*tasks, return_exceptions=True)
         logger.info("All managed streams stopped.")
+        self.end_signal.set()
 
     def start(self):
         logger.info(f"Starting PlotuneRuntime for {self.ext_name}")
@@ -105,29 +122,21 @@ class PlotuneRuntime:
             self._start_tray_icon()
         self._setup_signal_handlers()
 
+        for stream in self._streams.values():
+            asyncio.run_coroutine_threadsafe(self._ensure_stream_running(stream), self.loop)
+        
+        self.thread.join()
+
     def _setup_signal_handlers(self):
         def handler(signum, _frame):
             logger.warning(f"Signal {signum} received — stopping runtime...")
             self.stop()
+        
         for s in (signal.SIGINT, signal.SIGTERM):
             signal.signal(s, handler)
 
     def stop(self):
         logger.info("Stopping PlotuneRuntime (graceful)...")
-
-        # Stop all streams — always thread-safe
-        for stream in self._streams.values():
-            try:
-                asyncio.run_coroutine_threadsafe(stream.stop(), self.loop)
-            except Exception as e:
-                logger.error(f"Failed to schedule stream stop: {e}")
-
-        # Stop core client
-        try:
-            asyncio.run_coroutine_threadsafe(self.core_client.stop(), self.loop)
-        except Exception as e:
-            logger.debug("core_client.stop scheduling failed: %s", e)
-
         # Stop server
         try:
             uvicorn_srv = getattr(self.server, "_uvicorn_server", None)
@@ -155,10 +164,6 @@ class PlotuneRuntime:
 
         stream = PlotuneStream(self, stream_name)
         self._streams[stream_name] = stream
-
-        if self.loop.is_running():
-            asyncio.run_coroutine_threadsafe(self._ensure_stream_running(stream), self.loop)
-
         logger.info(f"Stream '{stream_name}' created and managed by runtime")
         return stream
 
