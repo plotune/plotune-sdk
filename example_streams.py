@@ -113,10 +113,8 @@ async def on_price(msg):
     if key == "Voltage":
         timestamp, value = float(data.get("time")), float(data.get("value"))
         print(key,timestamp,value)
+        await stream.aproduce("Current", timestamp, value/2)
 
 
 if __name__ == "__main__":
     runtime.start()
-    print("🚀 Extension running — all streams auto-started & managed!")
-    
-#D:/Projects/BAKSI/plotune-sdk/.venv/Scripts/python -m examples.example_streams

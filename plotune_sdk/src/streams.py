@@ -3,7 +3,7 @@ import asyncio
 import secrets
 from multiprocessing import Process, Queue
 from typing import Callable, Any, Dict, List, Optional
-from plotune_sdk.src.workers.consume_worker import worker_entry
+from plotune_sdk.src.workers import consumer_worker_entry, producer_worker_entry
 from plotune_sdk.utils import get_logger
 from queue import Empty
 logger = get_logger("plotune_stream")
@@ -22,6 +22,11 @@ class PlotuneStream:
         self.workers: Dict[str, Process] = {}
         self.queues: Dict[str, Queue] = {}
         self._queue_tasks: Dict[str, asyncio.Task] = {}
+
+        self.producer_enabled = False
+        self.producer_interval = 0.2 
+        self.producer_queue:Queue = None
+        self.stream_token:str = None
 
     # -----------------------------------------------------------------
     # API for registering consume handlers
@@ -43,14 +48,51 @@ class PlotuneStream:
     # Start all workers (one per registered group)
     # -----------------------------------------------------------------
     async def start(self, token: str):
+        self.stream_token = token
         if not self.username:
             raise RuntimeError("Username must be assigned before calling start()")
-
+        
         for group in list(self.handlers.keys()):
             if group in self.workers:
                 logger.debug(f"Worker for group={group} already running, skipping")
                 continue
             await self._start_worker_for_group(group, token)
+
+    async def enable_producer(self):
+        await self._start_worker_for_producer(self.stream_token)
+
+    async def aproduce(self, _key:str, timestamp:float, value:float):
+        if not self.producer_enabled:
+            await self.enable_producer()
+        
+        data = {"key":_key, "time":timestamp, "value":value}
+        try:
+            self.producer_queue.put_nowait(data)
+        except Exception as exc:
+            logger.warning(f"An error occured on {self.stream_name} producer {exc}")
+
+    def produce(self, _key: str, timestamp: float, value: float):
+        try:
+            fut = asyncio.run_coroutine_threadsafe(
+                self.aproduce(_key, timestamp, value),
+                self.runtime.loop
+            )
+        except RuntimeError:
+            logger.warning(f"{self.stream_name}: produce() ignored because event loop is shutting down")
+
+
+    async def _start_worker_for_producer(self, token:str):
+        q = Queue()
+        p = Process(
+            target=producer_worker_entry,
+            args=(self.username, self.stream_name, token, q, self.runtime._stop_event, self.producer_interval)
+        )
+        p.start()
+        self.producer_enabled = True
+        self.producer_queue = q
+        self.workers["@producer@"] = p
+
+        logger.info(f"[producer] Worker started PID={p.pid}")
 
     async def _start_worker_for_group(self, group: str, token: str):
         """
@@ -59,7 +101,7 @@ class PlotuneStream:
         """
         q = Queue()
         p = Process(
-            target=worker_entry,
+            target=consumer_worker_entry,
             args=(self.username, self.stream_name, group, token, q, self.runtime._stop_event),
             daemon=True,
         )
