@@ -13,10 +13,10 @@ logger = get_logger("plotune_stream")
 class PlotuneStream:
     """Handles streams for Plotune SDK: manages producers, consumers, and async handlers."""
 
-    def __init__(self, runtime, stream_name: str):
+    def __init__(self, runtime, stream_name: str, username:str = Optional[str]):
         self.runtime = runtime
         self.stream_name = stream_name
-        self.username: Optional[str] = None
+        self.username: Optional[str] = username
 
         # handlers[group] = [async_handler_func, ...]
         self.handlers: Dict[str, List[Callable[[Any], Any]]] = {}

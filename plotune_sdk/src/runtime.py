@@ -196,7 +196,7 @@ class PlotuneRuntime:
     async def _ensure_stream_running(self, stream: PlotuneStream):
         try:
             username, token = await self._get_stream_auth()
-            stream.username = username
+            stream.username = username or stream.username
             await stream.start(token)
             logger.info(f"Auto-started stream '{stream.stream_name}'")
         except Exception as e:
