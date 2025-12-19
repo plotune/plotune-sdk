@@ -5,13 +5,23 @@ import signal
 import sys
 from typing import Optional, Dict
 
-from pystray import Icon, Menu, MenuItem
 from importlib.resources import files, as_file
 from PIL import Image, ImageDraw
 
 from plotune_sdk.src import PlotuneServer, CoreClient
 from plotune_sdk.src.streams import PlotuneStream
-from plotune_sdk.utils import get_logger, get_cache, API_URL
+from plotune_sdk.utils import get_logger, get_cache, API_URL, PYSTRAY_HEADLESS
+
+
+Icon = None
+Menu = None
+MenuItem = None
+
+if not PYSTRAY_HEADLESS:
+    try:
+        from pystray import Icon, Menu, MenuItem
+    except ImportError:
+        pass
 
 logger = get_logger("extension")
 
@@ -30,7 +40,7 @@ class PlotuneRuntime:
         self.core_url = core_url
         self.host = host
         self.port = port
-        self.tray_icon_enabled = tray_icon
+        self.tray_icon_enabled = tray_icon and not PYSTRAY_HEADLESS
         self.config = config or {"id": ext_name}
         self.cache = get_cache(ext_name)
         self._stop_event = multiprocessing.Event()
@@ -215,6 +225,8 @@ class PlotuneRuntime:
             return img
 
     def _start_tray_icon(self):
+        if not self.tray_icon_enabled or Icon is None:
+            return
         image = self._load_icon_image()
         base_items = [
             MenuItem("Stop", lambda _: self.stop()),

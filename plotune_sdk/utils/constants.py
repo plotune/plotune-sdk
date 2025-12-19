@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 
 from diskcache import Cache
@@ -5,6 +6,8 @@ from platformdirs import user_cache_dir
 
 API_URL = "https://api.plotune.net"
 STREAM_URL = "https://stream.plotune.net"
+
+PYSTRAY_HEADLESS = os.getenv("PYSTRAY_HEADLESS", "0") == "1"
 
 
 @lru_cache(maxsize=None)
