@@ -187,6 +187,7 @@ class PlotuneRuntime:
             return self._stream_username_cache, self._stream_token_cache
 
         username, license_token = await self.core_client.authenticator.get_license_token()
+        username = username.split("@")[0]
         logger.debug(f"{username}, {license_token}")
         for _ in range(3):
             resp = await self.core_client.session.get(
