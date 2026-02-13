@@ -47,9 +47,7 @@ class CoreClient:
         """
         try:
             url = f"{self.core_url}/register"
-            headers = (
-                {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-            )
+            headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             payload = ExtensionConfig(**self.config).dict()
             logger.debug(f"Registering with payload: {payload}")
             r = await self.session.post(url, json=payload, headers=headers)
@@ -121,9 +119,7 @@ class CoreClient:
         """
         return asyncio.run(self.add_variable(variable_name, variable_desc))
 
-    async def heartbeat_loop(
-        self, ext_id: str, interval: int = 15, max_failures: int = 3
-    ):
+    async def heartbeat_loop(self, ext_id: str, interval: int = 15, max_failures: int = 3):
         """
         Continuously send periodic heartbeat messages to the Core.
 
@@ -144,9 +140,7 @@ class CoreClient:
                 fail_count += 1
                 logger.warning(f"Failed heartbeats: {fail_count}/{max_failures}")
                 if fail_count >= max_failures:
-                    logger.critical(
-                        "Max heartbeat failures reached, stopping heartbeat loop"
-                    )
+                    logger.critical("Max heartbeat failures reached, stopping heartbeat loop")
                     if self.heartbeat_fail_handler:
                         self.heartbeat_fail_handler()
                     break

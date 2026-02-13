@@ -17,19 +17,11 @@ class FileMetaData(BaseModel):
     name: str = Field(..., description="The name of the file.")
     path: str = Field(..., description="The file path on the system.")
     source: str = Field(..., description="The source of the file.")
-    headers: Optional[List[str]] = Field(
-        None, description="A list of headers found in the file."
-    )
-    desc: Optional[str] = Field(
-        None, description="A description of the file's content."
-    )
+    headers: Optional[List[str]] = Field(None, description="A list of headers found in the file.")
+    desc: Optional[str] = Field(None, description="A description of the file's content.")
     tags: Optional[List[str]] = Field(None, description="A list of tags for the file.")
-    created_at: Optional[datetime] = Field(
-        None, description="The creation timestamp of the file."
-    )
-    source_url: Optional[str] = Field(
-        None, description="The URL from which the file was sourced."
-    )
+    created_at: Optional[datetime] = Field(None, description="The creation timestamp of the file.")
+    source_url: Optional[str] = Field(None, description="The URL from which the file was sourced.")
 
 
 class FileReadRequest(BaseModel):

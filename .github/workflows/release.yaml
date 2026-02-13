@@ -1,0 +1,82 @@
+name: Build and Release Plotune SDK
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  release-package:
+    runs-on: [self-hosted, build]
+    timeout-minutes: 180
+
+    steps:
+      - name: Telegram Notify Start
+        run: |
+          JOB_NAME="${{ github.job }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="🚀 *Plotune SDK Release Started*
+            Time: ${TIMESTAMP}
+            Repo: ${{ github.repository }}
+            Actor: ${{ github.actor }}"
+      
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync Version from Git Tag
+        id: version_sync
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          CLEAN_VERSION=$(echo $LATEST_TAG | sed 's/^v//')
+          echo "Latest Git Tag: $LATEST_TAG"
+          echo "Target Version for Code: $CLEAN_VERSION"
+          
+          sed -i "s/__version__ = .*/__version__ = \"$CLEAN_VERSION\"/" plotune_sdk/__init__.py
+          
+          echo "SYNCED_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: uv sync
+      
+      - name: Deploy to PYPI
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv run deploy.py
+
+      - name: Telegram Notify Success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="✅ *Plotune SDK Successfully Published*
+            Version: ${{ env.SYNCED_VERSION }}
+            Status: PyPI Release Completed"
+
+      - name: Telegram Notify Failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="❌ *Plotune SDK Deployment Failed*
+            Version: ${{ env.SYNCED_VERSION }}
+            Check GitHub Actions logs for details."

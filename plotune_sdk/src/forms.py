@@ -123,9 +123,7 @@ class SectionBuilder:
         self.section["fields"].append(key)
         return self
 
-    def add_checkbox(
-        self, key: str, label: str, default: bool = False, required: bool = False
-    ):
+    def add_checkbox(self, key: str, label: str, default: bool = False, required: bool = False):
         """
         Add a checkbox field to the section.
 

@@ -5,9 +5,9 @@ import json
 form = FormLayout()
 
 # Tab 1: Settings
-form.add_tab("Settings").add_text(
-    "username", "Username", default="", required=False
-).add_text("test_field", "Test", default="", required=False).add_number(
+form.add_tab("Settings").add_text("username", "Username", default="", required=False).add_text(
+    "test_field", "Test", default="", required=False
+).add_number(
     "seed",
     "Seed",
     default=100,
@@ -26,9 +26,7 @@ form.add_tab("Settings").add_text(
 form.add_tab("Custom").add_file("file", "Optional file", required=True)
 
 # Group: Custom Group
-form.add_group("Custom Group").add_checkbox(
-    "enable", "Enable", default=True, required=False
-).add_button(
+form.add_group("Custom Group").add_checkbox("enable", "Enable", default=True, required=False).add_button(
     "forward",
     "Visit",
     action={

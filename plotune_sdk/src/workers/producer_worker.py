@@ -39,10 +39,7 @@ async def producer_worker(
     while not stop_event.is_set():
         try:
             async with ClientSession() as session:
-                async with session.ws_connect(
-                    url, headers={"Authorization": f"Bearer {token}"}
-                ) as ws:
-
+                async with session.ws_connect(url, headers={"Authorization": f"Bearer {token}"}) as ws:
                     while not stop_event.is_set():
                         message = data_from_queue(q)
                         if message:

@@ -71,9 +71,7 @@ async def test_aproduce(plotune_stream):
 @pytest.mark.asyncio
 async def test_enable_producer_sets_queue(plotune_stream):
     """Test that enabling producer sets the queue and worker."""
-    with patch("plotune_sdk.src.streams.Process") as mock_process, patch(
-        "multiprocessing.Queue"
-    ) as mock_queue:
+    with patch("plotune_sdk.src.streams.Process") as mock_process, patch("multiprocessing.Queue") as mock_queue:
         mock_proc_instance = mock_process.return_value
         mock_proc_instance.is_alive.return_value = True
 

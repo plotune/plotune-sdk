@@ -66,11 +66,9 @@ async def my_variables(data: dict):
 async def generate_the_form(data: dict):
     form = FormLayout()
 
-    form.add_tab("Settings").add_text(
-        "username", "Username", default="", required=True
-    ).add_text("test_field", "Test", default="", required=False).add_number(
-        "seed", "Seed", default=100, min_val=10, max_val=2000, required=False
-    ).add_combobox(
+    form.add_tab("Settings").add_text("username", "Username", default="", required=True).add_text(
+        "test_field", "Test", default="", required=False
+    ).add_number("seed", "Seed", default=100, min_val=10, max_val=2000, required=False).add_combobox(
         "color",
         "Color Pick",
         options=["Red", "Green", "Blue"],
@@ -80,9 +78,7 @@ async def generate_the_form(data: dict):
 
     form.add_tab("Custom").add_file("file", "Optional file", required=False)
 
-    form.add_group("Custom Group").add_checkbox(
-        "enable", "Enable", default=True, required=False
-    ).add_button(
+    form.add_group("Custom Group").add_checkbox("enable", "Enable", default=True, required=False).add_button(
         "forward",
         "Visit",
         action={

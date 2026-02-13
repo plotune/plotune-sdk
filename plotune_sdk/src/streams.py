@@ -80,13 +80,9 @@ class PlotuneStream:
     def produce(self, key: str, timestamp: float, value: float):
         """Thread-safe wrapper to produce a value from sync code."""
         try:
-            asyncio.run_coroutine_threadsafe(
-                self.aproduce(key, timestamp, value), self.runtime.loop
-            )
+            asyncio.run_coroutine_threadsafe(self.aproduce(key, timestamp, value), self.runtime.loop)
         except RuntimeError:
-            logger.warning(
-                f"{self.stream_name}: produce() ignored because event loop is shutting down"
-            )
+            logger.warning(f"{self.stream_name}: produce() ignored because event loop is shutting down")
 
     # -----------------------------------------------------------------
     # Internal worker management

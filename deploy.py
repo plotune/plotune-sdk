@@ -2,60 +2,43 @@ import subprocess
 import os
 import sys
 import shutil
-from dotenv import load_dotenv
 
 
 def deploy_package():
-    print("=== Starting package deployment ===")
+    print("=== Starting Plotune SDK deployment ===")
 
-    # Load environment variables
-    print("[INFO] Loading environment variables from .env...")
-    load_dotenv()
     pypi_token = os.getenv("PYPI_TOKEN")
-
     if not pypi_token:
-        print(
-            "[ERROR] PYPI_TOKEN is missing from the environment. Please verify your .env file."
-        )
-        return
+        print("[ERROR] PYPI_TOKEN is missing from environment variables.")
+        sys.exit(1)
 
-    # Clean build artifacts
     print("[INFO] Cleaning previous build artifacts...")
     for folder in ["dist", "build"]:
         shutil.rmtree(folder, ignore_errors=True)
-    for egg in [f for f in os.listdir(".") if f.endswith(".egg-info")]:
-        shutil.rmtree(egg, ignore_errors=True)
 
-    python_exe = sys.executable
-    print(f"[INFO] Using Python executable: {python_exe}")
-
-    # Build package
-    print("[INFO] Building distribution packages (python -m build)...")
+    print("[INFO] Building distribution packages with uv...")
     try:
-        subprocess.run([python_exe, "-m", "build"], check=True)
-        print("[SUCCESS] Package build completed successfully.")
+        subprocess.run(["uv", "build"], check=True)
+        print("[SUCCESS] Package build completed.")
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Package build failed: {e}")
-        return
+        print(f"[ERROR] Build failed: {e}")
+        sys.exit(1)
 
-    # Upload package
-    print("[INFO] Uploading package to PyPI (python -m twine upload dist/*)...")
+    print("[INFO] Uploading package to PyPI...")
     try:
-        env = os.environ.copy()
-        env["TWINE_USERNAME"] = "__token__"
-        env["TWINE_PASSWORD"] = pypi_token
-
         subprocess.run(
-            [python_exe, "-m", "twine", "upload", "dist/*"], env=env, check=True
+            [
+                "uv",
+                "publish",
+                "--token",
+                pypi_token,
+            ],
+            check=True,
         )
-        print("[SUCCESS] Upload completed successfully.")
-
+        print("[SUCCESS] Plotune SDK published successfully.")
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Upload failed: {e}")
-    except FileNotFoundError:
-        print(
-            "[ERROR] The 'twine' module was not found. Please install it with 'pip install twine'."
-        )
+        sys.exit(1)
 
     print("=== Deployment process finished ===")
 
