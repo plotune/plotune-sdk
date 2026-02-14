@@ -14,8 +14,8 @@ env:
 
 jobs:
   release-package:
-    runs-on: [self-hosted, build]
-    timeout-minutes: 180
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Telegram Notify Start
@@ -29,12 +29,20 @@ jobs:
             Time: ${TIMESTAMP}
             Repo: ${{ github.repository }}
             Actor: ${{ github.actor }}"
-      
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
 
       - name: Configure Git
         run: |
@@ -55,7 +63,7 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
-      
+
       - name: Deploy to PYPI
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
